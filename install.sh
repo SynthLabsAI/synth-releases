@@ -1,7 +1,58 @@
 #!/usr/bin/env bash
 # Synth native CLI installer. Release-pinned; no sudo or Gatekeeper changes.
+configure_path() {
+  local shell_name="${SHELL:-}" profile login_profile zsh_dir
+  local profiles=()
+  case "${shell_name##*/}" in
+    bash)
+      profiles=("$HOME/.bashrc")
+      login_profile="$HOME/.bash_profile"
+      for profile in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
+        if [ -e "$profile" ] || [ -L "$profile" ]; then
+          login_profile="$profile"
+          break
+        fi
+      done
+      profiles+=("$login_profile")
+      ;;
+    zsh)
+      # zsh reads .zshenv even for noninteractive shells; it may set ZDOTDIR.
+      # shellcheck disable=SC2016
+      zsh_dir=$(cd "$SYNTH_START_DIR" && "$shell_name" -c 'printf "%s" "${ZDOTDIR:-$HOME}"') || return 1
+      case "$zsh_dir" in /*) ;; *) zsh_dir="$SYNTH_START_DIR/$zsh_dir" ;; esac
+      [ -d "$zsh_dir" ] || return 1
+      profiles=("$zsh_dir/.zshrc")
+      ;;
+    *) return 1 ;;
+  esac
+  # Do not replace files or source interactive startup scripts.
+  for profile in "${profiles[@]}"; do
+    if [ -e "$profile" ] || [ -L "$profile" ]; then
+      [ -f "$profile" ] && [ -r "$profile" ] && [ -w "$profile" ] || return 1
+    fi
+  done
+  for profile in "${profiles[@]}"; do
+    # shellcheck disable=SC2016
+    if ! grep -Fqx 'export PATH="$HOME/.local/bin:$PATH"' "$profile" 2>/dev/null; then
+      # shellcheck disable=SC2016
+      printf '\n# Added by Synth\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$profile" || return 1
+    fi
+    printf 'Shell setup: %s\n' "$profile"
+  done
+}
+
 main() {
   set -eu
+  SYNTH_START_DIR=$PWD
+  SYNTH_MODIFY_PATH=1
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --no-modify-path) SYNTH_MODIFY_PATH=0 ;;
+      --help|-h) echo 'Usage: install.sh [--no-modify-path]'; return 0 ;;
+      *) printf 'Unknown option: %s\n' "$1" >&2; return 1 ;;
+    esac
+    shift
+  done
   SYNTH_VERSION="0.0.1-alpha.31"
   case "$(uname -s)" in
     Darwin) SYNTH_OS="darwin" ;;
@@ -41,6 +92,13 @@ main() {
   fi
   mv -f "$SYNTH_STAGE" "$HOME/.local/bin/synth"
   printf '%s\n' "$SYNTH_INSTALLED_VERSION"
+  if [ "$SYNTH_MODIFY_PATH" = 1 ]; then
+    if configure_path; then
+      printf '\nOpen a new terminal to use Synth.\n'
+    else
+      printf '\nSynth is installed. Add ~/.local/bin to your shell PATH manually.\n' >&2
+    fi
+  fi
   # The caller may have cached an older binary, invisible to this subprocess.
   # Assigning PATH also clears that shell's command cache.
   # shellcheck disable=SC2016
