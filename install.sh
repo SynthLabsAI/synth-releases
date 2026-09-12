@@ -94,7 +94,7 @@ main() {
   printf '%s\n' "$SYNTH_INSTALLED_VERSION"
   if [ "$SYNTH_MODIFY_PATH" = 1 ]; then
     if configure_path; then
-      printf '\nOpen a new terminal to use Synth.\n'
+      printf '\nSynth is ready. Open a new terminal to use it.\n'
     else
       printf '\nSynth is installed. Add ~/.local/bin to your shell PATH manually.\n' >&2
     fi
