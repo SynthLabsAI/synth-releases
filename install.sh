@@ -53,7 +53,7 @@ main() {
     esac
     shift
   done
-  SYNTH_VERSION="0.0.1-alpha.31"
+  SYNTH_VERSION="0.0.1-alpha.35"
   case "$(uname -s)" in
     Darwin) SYNTH_OS="darwin" ;;
     Linux) SYNTH_OS="linux" ;;
@@ -90,7 +90,16 @@ main() {
     echo "Downloaded binary reports an unexpected version" >&2
     exit 1
   fi
-  mv -f "$SYNTH_STAGE" "$HOME/.local/bin/synth"
+  # Validate the complete bundle before the release installer replaces anything.
+  test -f install-release.sh
+  test -x libexec/synth/restic
+  test -x libexec/synth/sqlite3
+  test -f licenses/restic/LICENSE
+  test -f licenses/sqlite/NOTICE
+  ./libexec/synth/restic version >/dev/null
+  ./libexec/synth/sqlite3 --version >/dev/null
+  # The archive owns the installation layout, including helpers and licenses.
+  bash ./install-release.sh "$HOME/.local/bin"
   printf '%s\n' "$SYNTH_INSTALLED_VERSION"
   if [ "$SYNTH_MODIFY_PATH" = 1 ]; then
     if configure_path; then
