@@ -53,7 +53,7 @@ main() {
     esac
     shift
   done
-  SYNTH_VERSION="0.0.1-alpha.45"
+  SYNTH_VERSION="0.0.1-alpha.51"
   case "$(uname -s)" in
     Darwin) SYNTH_OS="darwin" ;;
     Linux) SYNTH_OS="linux" ;;
